@@ -11,6 +11,7 @@ from .tokens import account_activation_token
 from django.contrib.auth.models import User
 from django.core.mail import EmailMessage
 import requests
+from .models import UserData
 
 
 def signup(request):
@@ -28,18 +29,33 @@ def signup(request):
                 'token': account_activation_token.make_token(user),
             })
             to_email = form.cleaned_data.get('email')
+            name= form.cleaned_data.get('username')
+            pass1=form.cleaned_data.get('password1')
+            print(name)
+            print(pass1)
+
+
             response = requests.get("http://api.quickemailverification.com/v1/verify?email="+to_email+"&apikey=519847e067dab09cd0a1c56e334105fffa8dd9793a96ccc61c808db1ae7f")
             result=response.json()
 
             if (result['did_you_mean']=='' and result['result']=="valid"):
-                    print("valid")
-                    mail_subject = 'Activate your blog account.'
-                    to_email = form.cleaned_data.get('email')
-                    email = EmailMessage(mail_subject, message, to=[to_email])
-                    email.send()
-                    return HttpResponse('Please confirm your email address to complete the registration')
+                print("valid")
+                userdata=UserData.objects.create(email=to_email,name=name,password=pass1)
+                userdata.save()
+                mail_subject = 'Activate your blog account.'
+                to_email = form.cleaned_data.get('email')
+                email = EmailMessage(mail_subject, message, to=[to_email])
+                email.send()
+                return HttpResponse('Please confirm your email address to complete the registration')
             else:
-	                return HttpResponse('The email given is invalid please check it ')
+                try:
+                    u=User.objects.get(username=name)
+                    u.delete()
+                except User.DoesNotExist:
+                    return HttpResponse('The email given is invalid please check it ')
+                except Exception as e:
+                    return render(request, 'signup.html', {'form': form})
+                return HttpResponse('The email given is invalid please check it ')
 
 
 
